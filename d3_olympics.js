@@ -154,9 +154,6 @@ function readData(err, data)
     
     for (var i=0; i<sports.length; i++) { getStats(sports[i].sport); }
 
-    //sports.sort(function(a,b) { return b.sd_bmi - a.sd_bmi })
-
-    
     var maxWeight = d3.max(data,function(d,i) { return Number(d.weight); });
     var minWeight = d3.min(data,function(d,i) { return Number(d.weight); });
     var maxHeight = d3.max(data,function(d,i) { return Number(d.height); });
@@ -172,14 +169,6 @@ function readData(err, data)
 
     function filterByGender(g)
     {
-/*
-//BY ST DEV
-        if (g==0) sports.sort(function(a,b) { return a.sd_bmi_m - b.sd_bmi_m })
-        else if (g==1) sports.sort(function(a,b) { return a.sd_bmi_f - b.sd_bmi_f })
-        else sports.sort(function(a,b) { return a.sd_bmi - b.sd_bmi })
-*/
-//BY AVG
-        
         if (g==0) sports.sort(function(a,b) { return a.avg_bmi_m - b.avg_bmi_m })
         else if (g==1) sports.sort(function(a,b) { return a.avg_bmi_f - b.avg_bmi_f })
         else sports.sort(function(a,b) { return a.avg_bmi - b.avg_bmi })
@@ -194,6 +183,13 @@ function readData(err, data)
         }
     }
     
+    function filterBySport(s)
+    {
+        console.log("filtering for "+s)
+        var ret = data.filter(function (d) { return d.sport.toLowerCase() == s.toLowerCase() })
+        console.log("Returning filtered data length "+ret.length)
+        return ret
+    }
     
     XYvalues = xy_values(data)
     var lr = linearRegression(XYvalues[1], XYvalues[0])
@@ -226,17 +222,19 @@ function readData(err, data)
       .enter()
       .append('g')
     
+    filterByGender(-1)
     var plot_legend_rect = plot_legend.append('rect')
       .attr('width','20')
       .attr('height','20')
+      .data(sports)
       .attr('fill',function(d,i) { return d.color })
       .attr('x',gutter+10)
-      .data(data)
       .attr('y',function(d,i) { return (i*21) })
-      .on('mouseenter', function(d, i) { highlightSports(d.sport,true) })
-      .on('mouseleave', function(d, i) { highlightSports(d.sport,false) })
+      .on('mouseenter', function(d, i) { highlightSports(d.sport,true, data) })
+      .on('mouseleave', function(d, i) { highlightSports(d.sport,false, data) })
 
     var plot_legend_text = plot_legend.append('text')
+      .data(sports)
       .text(function(d,i) { return d.sport })
       .attr('x',gutter+35)
       .attr('y',function(d,i) { return 15+(i*21) })
@@ -282,8 +280,8 @@ function readData(err, data)
       .attr('fill',function(d,i) { return getSport(d.sport).color })
       .style('stroke',function(d,i) { return Number(d.total_medals)>0?'black':'none' })
       .style('stroke-width',function(d,i) { return Number(d.total_medals)>0?'3':'0' })
-      .on('mouseenter', function(d, i) { highlightSports(d.sport,true) })
-      .on('mouseleave', function(d, i) { highlightSports(d.sport,false) })
+      .on('mouseenter', function(d, i) { highlightSports(d.sport,true, data) })
+      .on('mouseleave', function(d, i) { highlightSports(d.sport,false, data) })
         
             
     var axy = d3.svg.axis().scale(scaleHeight).orient('left')  
@@ -358,7 +356,7 @@ function readData(err, data)
       if (g != -1) button.text(g==0?"View by Females":"View by Males")
     }
 
-    function highlightSports(s,highlight)
+    function highlightSports(s,highlight, datax)
     {
         d3.select('svg')
           .selectAll('circle')
@@ -380,17 +378,13 @@ function readData(err, data)
           .selectAll('rect')
           .style('stroke',function(d,i) { return highlight && s.toLowerCase()==d.sport.toLowerCase()?'black':'none' })
           .style('stroke-width',function(d,i) { return highlight && s.toLowerCase()==d.sport.toLowerCase()?'3':'0' })
-            
-        var dataGroup = d3.nest() 
-            .key(function(d, i) {return d.sport }) 
-            .entries(data);
         
-        var dataFiltered = data.filter(function (d) { return d.sport === s })
+        var dataFiltered = filterBySport(s)
         
         if(highlight){
             XYvalues = xy_values(dataFiltered)
             var lr = linearRegression(XYvalues[1], XYvalues[0])
-            console.log(dataFiltered)
+            console.log(XYvalues[1])
             plot_trendline.transition()
               .duration(0)
               .attr('x1',scaleWeight(lr.x1))
@@ -424,7 +418,6 @@ function readData(err, data)
       .text('View by Everyone')
       .on('click', function() { updateChart(-1) })
     
-    
     //-------------------------------------
       function linearRegression(y,x){
 
@@ -447,7 +440,6 @@ function readData(err, data)
 
         lr['slope'] = (n * sum_xy - sum_x * sum_y) / (n*sum_xx - sum_x * sum_x); 
         lr['intercept'] = (sum_y - lr.slope * sum_x)/n;
-        lr['r2'] = Math.pow((n*sum_xy - sum_x*sum_y)/Math.sqrt((n*sum_xx-sum_x*sum_x)*(n*sum_yy-sum_y*sum_y)),2);
           
         return { x1:minWeight, x2:maxWeight, y1:minWeight*lr['slope'] + lr['intercept'], y2:maxWeight*lr['slope'] +                         lr['intercept'] };
         };
@@ -465,12 +457,6 @@ function readData(err, data)
                 }
                 return [xval, yval];
             };
-
-        //var lr = linearRegression(yval,xval);
-        // now you have:
-        // lr.slope
-        // lr.intercept
-        // lr.r2
-      
-        
 }
+
+    
